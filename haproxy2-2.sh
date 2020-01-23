@@ -1,14 +1,13 @@
 # Setup Haproxy-2-2
 bash <<EOF2
-sed -i 's/ubuntu/haproxy22/g' /etc/hostname
-sed -i 's/ubuntu/haproxy22/g' /etc/hosts
+sed -i 's/localhost/haproxy22/g' /etc/hostname
+sed -i 's/localhost/haproxy22/g' /etc/hosts
 hostname haproxy22
-add-apt-repository -y ppa:cz.nic-labs/bird
-apt-get update
-apt-get install bird traceroute
+apk add bird --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
+rc-update add bird
 cat >> /etc/network/interfaces << EOF 
-auto enp0s8
-iface enp0s8 inet static
+auto eth1
+iface eth1 inet static
    address 10.40.243.12
    netmask 255.255.255.128
 auto lo:0
@@ -17,26 +16,28 @@ auto lo:0
   netmask 255.255.255.255
 EOF
 /etc/init.d/networking restart
-cat > /etc/bird/bird.conf << EOF1 
+cat > /etc/bird.conf << EOF1 
 # Configure logging
 log syslog all;
-log "/var/log/bird.log" all;
 log stderr all;
 
 # Override router ID
-router id 10.40.243.12;
+router id 10.40.243.11;
 
 # Define local AS variable
 define haproxyas = 64705;
 
 # VIP's which we want to announce
 protocol static VIPs {
+ ipv4;
  route 172.16.2.12/32 via 10.40.243.12;
 }
 
 # Sync bird routing table with kernel
 protocol kernel {
- export all;
+ ipv4 {
+        export all;
+ };
 }
 
 # Include device route (warning, a device route is a /32)
@@ -46,15 +47,18 @@ protocol device {
 
 # Include directly connected networks
 protocol direct {
- interface "enp0s8";
+ ipv4;
+ interface "eth1";
 }
 
 protocol bgp reflector1 {
  local as haproxyas;
- neighbor 10.40.243.4 as haproxyas;
- default bgp_local_pref 200;
- import all;
- export all;
+ neighbor 10.40.243.5 as haproxyas;
+ default bgp_local_pref 100;
+ ipv4 {
+        import all;
+        export all;
+ };
 }
 EOF1
 exit

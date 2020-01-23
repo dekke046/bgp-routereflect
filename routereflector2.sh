@@ -1,19 +1,18 @@
-# Setup Route Reflector 1
+# Setup Route Reflector 2
 bash <<EOF2
-sed -i 's/ubuntu/reflector2/g' /etc/hostname
-sed -i 's/ubuntu/reflector2/g' /etc/hosts
+sed -i 's/localhost/reflector2/g' /etc/hostname
+sed -i 's/localhost/reflector2/g' /etc/hosts
 hostname reflector2
-add-apt-repository -y ppa:cz.nic-labs/bird
-apt-get update
-apt-get install bird traceroute
+apk add bird --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
+rc-update add bird
 cat >> /etc/network/interfaces << EOF 
-auto enp0s8
-iface enp0s8 inet static
+auto eth1
+iface eth1 inet static
    address 10.40.243.5
    netmask 255.255.255.128
 EOF
 /etc/init.d/networking restart
-cat > /etc/bird/bird.conf << EOF1 
+cat > /etc/bird.conf << EOF1 
 # Configure logging
 log syslog { debug, trace, info, remote, warning, error, auth, fatal, bug };
 log stderr all;
@@ -26,10 +25,11 @@ define haproxyas = 64705;
 # Define spirit AS variable
 define spiritas = 65516;
 
-
 # Sync bird routing table with kernel
 protocol kernel {
+ ipv4 {
         export all;
+ };
 }
 
 protocol device {
@@ -38,35 +38,42 @@ protocol device {
 
 # Include directly connected networks
 protocol direct {
-        interface "enp0s8";
+        ipv4;
+        interface "eth1";
 }
 
-protocol bgp haproxy12 {
+protocol bgp haproxy21 {
  local as haproxyas;
  neighbor 10.40.243.11 as haproxyas;
- import all;
- export all;
+ ipv4 {
+        import all;
+        export all;
+ };
  rr client;
 }
 
 protocol bgp haproxy22 {
  local as haproxyas;
  neighbor 10.40.243.12 as haproxyas;
- import all;
- export all;
+ ipv4 {
+        import all;
+        export all;
+ };
  rr client;
 }
 
+
 protocol bgp router1 {
- import none;
- export all;
+ ipv4 {
+        import none;
+        export all;
+ };
  local as haproxyas;
  source address 10.40.243.5;
- neighbor 10.40.243.3 as spiritas;
+ neighbor 10.40.243.2 as spiritas;
  # Override the usual restriction of LOCAL_PREF on eBGP sessions
  allow bgp_local_pref;
 }
-
 EOF1
 exit
 EOF2

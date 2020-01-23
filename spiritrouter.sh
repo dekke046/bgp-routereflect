@@ -1,19 +1,18 @@
 # Setup Spirit Router
 bash <<EOF2
-sed -i 's/ubuntu/spiritrouter/g' /etc/hostname
-sed -i 's/ubuntu/spiritrouter/g' /etc/hosts
+sed -i 's/localhost/spiritrouter/g' /etc/hostname
+sed -i 's/localhost/spiritrouter/g' /etc/hosts
 hostname spiritrouter
-add-apt-repository -y ppa:cz.nic-labs/bird
-apt-get update
-apt-get install bird traceroute
+apk add bird --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing
+rc-update add bird
 cat >> /etc/network/interfaces << EOF 
-auto enp0s8
-iface enp0s8 inet static
+auto eth1
+iface eth1 inet static
    address 10.40.243.2
    netmask 255.255.255.128
 EOF
 /etc/init.d/networking restart
-cat > /etc/bird/bird.conf << EOF1
+cat > /etc/bird.conf << EOF1
 # Configure logging
 log syslog all;
 log stderr all;
@@ -34,8 +33,10 @@ filter clients_vip {
 
 protocol kernel {
  scan time 2;
- import all;
- export all;
+ ipv4 {
+        import all;
+        export all;
+ };
  learn;
 }
 
@@ -44,7 +45,7 @@ protocol device {
 }
 
 protocol direct {
- interface "enp0s8";
+ interface "eth1";
 }
 
 protocol bgp reflector1 {
